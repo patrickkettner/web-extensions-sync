@@ -1,6 +1,174 @@
 /******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ([
-/* 0 */,
+/* 0 */
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.deactivate = exports.activate = void 0;
+const vscode = __importStar(__webpack_require__(1));
+const os_1 = __webpack_require__(2);
+const fs_1 = __webpack_require__(3);
+const path = __importStar(__webpack_require__(4));
+const lz_string_1 = __webpack_require__(5);
+const logger = vscode.window.createOutputChannel("Web Playground Fetcher");
+logger.appendLine("Web Playground Fetcher has started");
+function createTemporaryDirectoryWithFiles({ files }) {
+    const tempDir = (0, fs_1.mkdtempSync)(path.join((0, os_1.tmpdir)(), "temp-"));
+    files?.forEach((file) => {
+        const filePath = path.join(tempDir, file.name);
+        const fileContents = file.text;
+        (0, fs_1.mkdirSync)(path.dirname(filePath), {
+            recursive: true
+        });
+        (0, fs_1.writeFileSync)(filePath, fileContents);
+    });
+    return tempDir;
+}
+// This method is called when your extension is activated
+// Your extension is activated the very first time the command is executed
+function activate(context) {
+    const prefix = "https://play.web-extensions.dev/#s=";
+    const fetch = vscode.commands.registerCommand("web-extensions-sync.fetch", async () => {
+        const clipboard = await vscode.env.clipboard.readText();
+        let userInput;
+        if (clipboard.startsWith(prefix)) {
+            userInput = clipboard;
+        }
+        else {
+            userInput = await vscode.window.showInputBox({
+                placeHolder: `${prefix}...`,
+                validateInput: (text) => {
+                    if (!text.startsWith(prefix)) {
+                        if (text !== "") {
+                            return "Invalid Playground URL";
+                        }
+                    }
+                },
+            });
+        }
+        const hash = userInput?.slice(prefix.length) ?? "";
+        try {
+            const data = JSON.parse((0, lz_string_1.decompressFromEncodedURIComponent)(unescape(hash)));
+            const folderPath = createTemporaryDirectoryWithFiles(data);
+            vscode.commands.executeCommand("vscode.openFolder", vscode.Uri.file(folderPath), true);
+        }
+        catch (err) {
+            logger.appendLine(err.message);
+        }
+    });
+    const generate = async () => {
+        async function recreateDataObjectFromFiles() {
+            const files = await vscode.workspace.findFiles("**/*", await getExcludedFilesGlob(), 100);
+            const data = [];
+            if (files.length > 0) {
+                for (const file of files) {
+                    const document = await vscode.workspace.openTextDocument(file);
+                    const text = document.getText();
+                    const relativePath = vscode.workspace.asRelativePath(file);
+                    const fileEntry = {
+                        name: relativePath,
+                        text: text,
+                    };
+                    data.push(fileEntry);
+                }
+            }
+            return data;
+        }
+        async function getExcludedFilesGlob() {
+            const workspaceFolders = vscode.workspace.workspaceFolders;
+            if (!workspaceFolders) {
+                return undefined;
+            }
+            const gitIgnorePath = vscode.Uri.file(workspaceFolders[0].uri.fsPath + "/.gitignore");
+            const gitIgnoreExists = vscode.workspace.fs
+                .stat(gitIgnorePath)
+                .then((stat) => stat.type === vscode.FileType.File)
+                .then(undefined, () => false); // Error handling for failure case
+            const gitIgnoreFileExists = await gitIgnoreExists; // Await the promise
+            if (gitIgnoreFileExists) {
+                if (vscode.window.activeTextEditor) {
+                    const workspaceFolder = vscode.workspace.getWorkspaceFolder(vscode.window.activeTextEditor.document.uri);
+                    if (workspaceFolder) {
+                        return new vscode.RelativePattern(workspaceFolder, ".gitignore");
+                    }
+                }
+            }
+        }
+        async function getManifestVersion() {
+            const manifestPath = path.join(vscode.workspace.rootPath || "", "manifest.json");
+            try {
+                const content = await vscode.workspace.fs.readFile(vscode.Uri.file(manifestPath));
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                let { manifest_version } = JSON.parse(content.toString());
+                let version = manifest_version === 2 ?
+                    "MV2" :
+                    manifest_version === 3 ?
+                        "MV3" :
+                        undefined;
+                return; // Return early on success
+            }
+            catch (err) {
+                showInvalidExtensionProjectError(err);
+            }
+        }
+        function showInvalidExtensionProjectError(err) {
+            logger.appendLine(err.message);
+            vscode.window.showErrorMessage("Not a valid extension project");
+        }
+        const files = await recreateDataObjectFromFiles();
+        const manifestVersion = await getManifestVersion();
+        const stateObj = {
+            files,
+            browser: "Chrome",
+            manifestVersion,
+            includePolyfill: false,
+            templateId: "helloWorld",
+        };
+        const state = (0, lz_string_1.compressToEncodedURIComponent)(JSON.stringify(stateObj));
+        return `${prefix}${state}`;
+    };
+    const copyURL = vscode.commands.registerCommand("web-extensions-sync.copyURL", async () => {
+        const playgroundURL = await generate();
+        await vscode.env.clipboard.writeText(playgroundURL);
+    });
+    const openURL = vscode.commands.registerCommand("web-extensions-sync.openURL", async () => {
+        const playgroundURL = await generate();
+        vscode.env.openExternal(vscode.Uri.parse(playgroundURL));
+    });
+    context.subscriptions.push(fetch, copyURL, openURL);
+}
+exports.activate = activate;
+// This method is called when your extension is deactivated
+function deactivate() { }
+exports.deactivate = deactivate;
+
+
+/***/ }),
 /* 1 */
 /***/ ((module) => {
 
@@ -555,188 +723,20 @@ if (true) {
 /******/ 		};
 /******/ 	
 /******/ 		// Execute the module function
-/******/ 		__webpack_modules__[moduleId](module, module.exports, __webpack_require__);
+/******/ 		__webpack_modules__[moduleId].call(module.exports, module, module.exports, __webpack_require__);
 /******/ 	
 /******/ 		// Return the exports of the module
 /******/ 		return module.exports;
 /******/ 	}
 /******/ 	
 /************************************************************************/
-/******/ 	/* webpack/runtime/compat get default export */
-/******/ 	(() => {
-/******/ 		// getDefaultExport function for compatibility with non-harmony modules
-/******/ 		__webpack_require__.n = (module) => {
-/******/ 			var getter = module && module.__esModule ?
-/******/ 				() => (module['default']) :
-/******/ 				() => (module);
-/******/ 			__webpack_require__.d(getter, { a: getter });
-/******/ 			return getter;
-/******/ 		};
-/******/ 	})();
 /******/ 	
-/******/ 	/* webpack/runtime/define property getters */
-/******/ 	(() => {
-/******/ 		// define getter functions for harmony exports
-/******/ 		__webpack_require__.d = (exports, definition) => {
-/******/ 			for(var key in definition) {
-/******/ 				if(__webpack_require__.o(definition, key) && !__webpack_require__.o(exports, key)) {
-/******/ 					Object.defineProperty(exports, key, { enumerable: true, get: definition[key] });
-/******/ 				}
-/******/ 			}
-/******/ 		};
-/******/ 	})();
+/******/ 	// startup
+/******/ 	// Load entry module and return exports
+/******/ 	// This entry module is referenced by other modules so it can't be inlined
+/******/ 	var __webpack_exports__ = __webpack_require__(0);
+/******/ 	module.exports = __webpack_exports__;
 /******/ 	
-/******/ 	/* webpack/runtime/hasOwnProperty shorthand */
-/******/ 	(() => {
-/******/ 		__webpack_require__.o = (obj, prop) => (Object.prototype.hasOwnProperty.call(obj, prop))
-/******/ 	})();
-/******/ 	
-/******/ 	/* webpack/runtime/make namespace object */
-/******/ 	(() => {
-/******/ 		// define __esModule on exports
-/******/ 		__webpack_require__.r = (exports) => {
-/******/ 			if(typeof Symbol !== 'undefined' && Symbol.toStringTag) {
-/******/ 				Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
-/******/ 			}
-/******/ 			Object.defineProperty(exports, '__esModule', { value: true });
-/******/ 		};
-/******/ 	})();
-/******/ 	
-/************************************************************************/
-var __webpack_exports__ = {};
-// This entry need to be wrapped in an IIFE because it need to be in strict mode.
-(() => {
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   activate: () => (/* binding */ activate),
-/* harmony export */   deactivate: () => (/* binding */ deactivate)
-/* harmony export */ });
-/* harmony import */ var vscode__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(1);
-/* harmony import */ var vscode__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(vscode__WEBPACK_IMPORTED_MODULE_0__);
-/* harmony import */ var os__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(2);
-/* harmony import */ var os__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(os__WEBPACK_IMPORTED_MODULE_1__);
-/* harmony import */ var fs__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(3);
-/* harmony import */ var fs__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(fs__WEBPACK_IMPORTED_MODULE_2__);
-/* harmony import */ var path__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(4);
-/* harmony import */ var path__WEBPACK_IMPORTED_MODULE_3___default = /*#__PURE__*/__webpack_require__.n(path__WEBPACK_IMPORTED_MODULE_3__);
-/* harmony import */ var lz_string__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(5);
-/* harmony import */ var lz_string__WEBPACK_IMPORTED_MODULE_4___default = /*#__PURE__*/__webpack_require__.n(lz_string__WEBPACK_IMPORTED_MODULE_4__);
-
-
-
-
-
-function createTemporaryDirectoryWithFiles(files) {
-    const tempDir = (0,fs__WEBPACK_IMPORTED_MODULE_2__.mkdtempSync)(path__WEBPACK_IMPORTED_MODULE_3__.join((0,os__WEBPACK_IMPORTED_MODULE_1__.tmpdir)(), "temp-"));
-    files.forEach((file) => {
-        const filePath = path__WEBPACK_IMPORTED_MODULE_3__.join(tempDir, file.name);
-        const fileContents = file.text;
-        (0,fs__WEBPACK_IMPORTED_MODULE_2__.mkdirSync)(path__WEBPACK_IMPORTED_MODULE_3__.dirname(filePath), { recursive: true });
-        (0,fs__WEBPACK_IMPORTED_MODULE_2__.writeFileSync)(filePath, fileContents);
-    });
-    return tempDir;
-}
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
-function activate(context) {
-    const prefix = "https://play.web-extensions.dev/#s=";
-    const logger = vscode__WEBPACK_IMPORTED_MODULE_0__.window.createOutputChannel("Web Playground Fetcher");
-    const fetch = vscode__WEBPACK_IMPORTED_MODULE_0__.commands.registerCommand("web-playground-sync.fetch", async () => {
-        const userInput = await vscode__WEBPACK_IMPORTED_MODULE_0__.window.showInputBox({
-            placeHolder: `${prefix}...`,
-            validateInput: (text) => {
-                if (!text.startsWith(prefix)) {
-                    if (text !== "") {
-                        return "Not 123!";
-                    }
-                }
-            },
-        });
-        const hash = userInput?.slice(prefix.length) || "";
-        const data = JSON.parse((0,lz_string__WEBPACK_IMPORTED_MODULE_4__.decompressFromEncodedURIComponent)(unescape(hash)));
-        const folderPath = createTemporaryDirectoryWithFiles(data);
-        vscode__WEBPACK_IMPORTED_MODULE_0__.commands.executeCommand("vscode.openFolder", vscode__WEBPACK_IMPORTED_MODULE_0__.Uri.file(folderPath), true);
-    });
-    const generate = vscode__WEBPACK_IMPORTED_MODULE_0__.commands.registerCommand("web-playground-sync.generate", async () => {
-        async function recreateDataObjectFromFiles() {
-            const files = await vscode__WEBPACK_IMPORTED_MODULE_0__.workspace.findFiles("**/*", await getExcludedFilesGlob(), 100);
-            const data = {
-                files: [],
-            };
-            for (const file of files) {
-                const document = await vscode__WEBPACK_IMPORTED_MODULE_0__.workspace.openTextDocument(file);
-                const text = document.getText();
-                const relativePath = vscode__WEBPACK_IMPORTED_MODULE_0__.workspace.asRelativePath(file);
-                const fileEntry = {
-                    name: relativePath,
-                    text: text,
-                };
-                data.files.push(fileEntry);
-            }
-            return data.files;
-        }
-        async function getExcludedFilesGlob() {
-            const workspaceFolders = vscode__WEBPACK_IMPORTED_MODULE_0__.workspace.workspaceFolders;
-            if (!workspaceFolders) {
-                return undefined;
-            }
-            const gitIgnorePath = vscode__WEBPACK_IMPORTED_MODULE_0__.Uri.file(workspaceFolders[0].uri.fsPath + "/.gitignore");
-            const gitIgnoreExists = vscode__WEBPACK_IMPORTED_MODULE_0__.workspace.fs.stat(gitIgnorePath)
-                .then((stat) => stat.type === vscode__WEBPACK_IMPORTED_MODULE_0__.FileType.File)
-                .then(undefined, () => false); // Error handling for failure case
-            const gitIgnoreFileExists = await gitIgnoreExists; // Await the promise
-            if (gitIgnoreFileExists) {
-                if (vscode__WEBPACK_IMPORTED_MODULE_0__.window.activeTextEditor) {
-                    const workspaceFolder = vscode__WEBPACK_IMPORTED_MODULE_0__.workspace.getWorkspaceFolder(vscode__WEBPACK_IMPORTED_MODULE_0__.window.activeTextEditor.document.uri);
-                    if (workspaceFolder) {
-                        return new vscode__WEBPACK_IMPORTED_MODULE_0__.RelativePattern(workspaceFolder, ".gitignore");
-                    }
-                }
-            }
-        }
-        async function getManifestVersion() {
-            const manifestPath = path__WEBPACK_IMPORTED_MODULE_3__.join(vscode__WEBPACK_IMPORTED_MODULE_0__.workspace.rootPath || "", "manifest.json");
-            try {
-                const content = await vscode__WEBPACK_IMPORTED_MODULE_0__.workspace.fs.readFile(vscode__WEBPACK_IMPORTED_MODULE_0__.Uri.file(manifestPath));
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                let { manifest_version } = JSON.parse(content.toString());
-                let version = manifest_version === 2
-                    ? "MV2"
-                    : manifest_version === 3
-                        ? "MV3"
-                        : undefined;
-                return; // Return early on success
-            }
-            catch (err) {
-                showInvalidExtensionProjectError(err);
-            }
-        }
-        function showInvalidExtensionProjectError(err) {
-            logger.appendLine(err.message);
-            vscode__WEBPACK_IMPORTED_MODULE_0__.window.showErrorMessage("Not a valid extension project");
-        }
-        const files = await recreateDataObjectFromFiles();
-        const manifestVersion = await getManifestVersion();
-        const stateObj = {
-            files,
-            browser: "Chrome",
-            manifestVersion,
-            includePolyfill: false,
-            templateId: "helloWorld",
-        };
-        const state = (0,lz_string__WEBPACK_IMPORTED_MODULE_4__.compressToEncodedURIComponent)(JSON.stringify(stateObj));
-        logger.appendLine(JSON.stringify(stateObj));
-        logger.appendLine(`${prefix}${state}`);
-    });
-    context.subscriptions.push(fetch, generate);
-}
-// This method is called when your extension is deactivated
-function deactivate() { }
-
-})();
-
-module.exports = __webpack_exports__;
 /******/ })()
 ;
 //# sourceMappingURL=extension.js.map
