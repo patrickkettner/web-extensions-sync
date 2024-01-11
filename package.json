@@ -1,11 +1,13 @@
 {
-  "name": "webextensions.dev-sync",
+  "name": "web-extensions-sync",
   "displayName": "web-extensions-sync",
   "description": "no",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.78.0"
   },
+  "repository": "https://github.com/patrickkettner/web-extensions-sync",
+  "license": "Apache 2.0",
   "categories": [
     "Other"
   ],
