@@ -8,6 +8,7 @@
   },
   "repository": "https://github.com/patrickkettner/web-extensions-sync",
   "license": "Apache 2.0",
+  "publisher": "patrickkettner",
   "categories": [
     "Other"
   ],
