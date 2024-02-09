@@ -6,6 +6,27 @@ import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from
 const logger = vscode.window.createOutputChannel("Web Playground Fetcher");
 logger.appendLine("Web Playground Fetcher has started");
 
+const loadProject = function(hash: string) {
+  try {
+    if (!hash) {
+      return;
+    }
+    
+    const data = JSON.parse(
+      decompressFromEncodedURIComponent(unescape(hash))
+    );
+
+    const folderPath = createTemporaryDirectoryWithFiles(data);
+    vscode.commands.executeCommand(
+      "vscode.openFolder",
+      vscode.Uri.file(folderPath),
+      true
+    );
+  } catch (err: any) {
+    logger.appendLine(err.message);
+  }
+};
+
 function createTemporaryDirectoryWithFiles({ files }: { files: any[] }) {
   const tempDir = mkdtempSync(path.join(tmpdir(), "temp-"));
 
@@ -29,11 +50,20 @@ function createTemporaryDirectoryWithFiles({ files }: { files: any[] }) {
 export function activate(context: vscode.ExtensionContext) {
   const prefix = "https://play.web-extensions.dev/#s=";
 
+  const directLoad = vscode.window.registerUriHandler({
+    handleUri(uri:vscode.Uri) {
+      if (uri.path === '/load-project')  {
+        const hash = uri.fragment.slice(2);
+        loadProject(hash);
+      }
+    }
+  });
+
   const fetch = vscode.commands.registerCommand(
     "web-extensions-sync.fetch",
     async () => {
 
-      const clipboard = await vscode.env.clipboard.readText()
+      const clipboard = await vscode.env.clipboard.readText();
       let userInput;
 
       if (clipboard.startsWith(prefix)) { 
@@ -53,20 +83,7 @@ export function activate(context: vscode.ExtensionContext) {
 
       const hash = userInput?.slice(prefix.length) ?? "";
 
-      try {
-        const data = JSON.parse(
-          decompressFromEncodedURIComponent(unescape(hash))
-        );
-
-        const folderPath = createTemporaryDirectoryWithFiles(data);
-        vscode.commands.executeCommand(
-          "vscode.openFolder",
-          vscode.Uri.file(folderPath),
-          true
-        );
-      } catch (err: any) {
-        logger.appendLine(err.message);
-      }
+      loadProject(hash);
     }
   );
 
@@ -138,9 +155,7 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.Uri.file(manifestPath)
           );
           // eslint-disable-next-line @typescript-eslint/naming-convention
-          let {
-            manifest_version
-          } = JSON.parse(content.toString());
+          let {manifest_version} = JSON.parse(content.toString());
           let version =
             manifest_version === 2 ?
             "MV2" :
@@ -189,7 +204,7 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.env.openExternal(vscode.Uri.parse(playgroundURL));
    });
 
-  context.subscriptions.push(fetch, copyURL, openURL);
+  context.subscriptions.push(fetch, copyURL, openURL, directLoad);
 }
 
 // This method is called when your extension is deactivated
