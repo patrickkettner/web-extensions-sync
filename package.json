@@ -1,59 +1,72 @@
 {
-  "name": "web-extensions-sync",
-  "displayName": "web-extensions-sync",
-  "description": "no",
-  "version": "0.0.2",
-  "engines": {
-    "vscode": "^1.78.0"
-  },
-  "repository": "https://github.com/patrickkettner/web-extensions-sync",
-  "license": "Apache 2.0",
-  "publisher": "patrickkettner",
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": ["onStartupFinished"],
-  "main": "./dist/extension.js",
-  "contributes": {
-    "commands": [
-      {
-        "command": "web-extensions-sync.fetch",
-        "title": "WebExtensions: Fetch playground URL as a project"
-      },
-      {
-        "command": "web-extensions-sync.copyURL",
-        "title": "WebExtensions: Generate a playground URL, then  copy to clipboard"
-      },
-      {
-        "command": "web-extensions-sync.openURL",
-        "title": "WebExtensions: Open playground URL with the current window's contents"
-      }
-    ]
-  },
-  "scripts": {
-    "vscode:prepublish": "npm run package",
-    "build": "npm run compile",
-    "compile": "webpack",
-    "watch": "webpack --watch",
-    "package": "webpack --mode production --devtool hidden-source-map"
-  },
-  "devDependencies": {
-    "@types/glob": "^8.1.0",
-    "@types/mocha": "^10.0.1",
-    "@types/vscode": "^1.78.0",
-    "@vscode/test-electron": "^2.3.2",
-    "eslint": "^8.41.0",
-    "glob": "^10.2.6",
-    "mocha": "^10.2.0",
-    "ts-loader": "^9.4.3",
-    "typescript": "^5.0.4",
-    "webpack": "^5.84.0",
-    "webpack-cli": "^5.1.1"
-  },
-  "dependencies": {
-    "@types/node": "^20.10.7",
-    "@typescript-eslint/eslint-plugin": "^6.18.0",
-    "@typescript-eslint/parser": "^6.18.0",
-    "lz-string": "^1.5.0"
-  }
+	"name": "web-extensions-sync",
+	"displayName": "web-extensions-sync",
+	"description": "Easily import and export extensions to play.web-extensions.dev directly in VSCode",
+	"version": "0.0.3",
+	"engines": {
+		"vscode": "^1.86.0"
+	},
+	"repository": "https://github.com/patrickkettner/web-extensions-sync",
+	"license": "Apache 2.0",
+	"publisher": "patrickkettner",
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"main": "./dist/extension.js",
+	"contributes": {
+		"commands": [
+			{
+				"command": "web-extensions-sync.fetch",
+				"title": "WebExtensions: Fetch playground URL as a project"
+			},
+			{
+				"command": "web-extensions-sync.copyURL",
+				"title": "WebExtensions: Generate a playground URL, then  copy to clipboard"
+			},
+			{
+				"command": "web-extensions-sync.openURL",
+				"title": "WebExtensions: Open playground URL with the current window's contents"
+			}
+		]
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run package",
+		"build": "npm run compile",
+		"compile": "webpack",
+		"watch": "webpack --watch",
+		"package": "webpack --mode production --devtool hidden-source-map"
+	},
+	"devDependencies": {
+		"@types/glob": "^8.1.0",
+		"@types/mocha": "^10.0.6",
+		"@types/vscode": "^1.86.0",
+		"@vscode/test-electron": "^2.3.9",
+		"eslint": "^8.56.0",
+		"glob": "^10.3.10",
+		"mocha": "^10.3.0",
+		"ts-loader": "^9.5.1",
+		"typescript": "^5.3.3",
+		"webpack": "^5.90.1",
+		"webpack-cli": "^5.1.4"
+	},
+	"dependencies": {
+		"@types/node": "^20.11.17",
+		"@typescript-eslint/eslint-plugin": "^6.21.0",
+		"@typescript-eslint/parser": "^6.21.0",
+		"lz-string": "^1.5.0"
+	},
+	"__metadata": {
+		"id": "96b86225-b9b8-453e-b376-ade4a7b59bea",
+		"publisherId": "ba685b8e-da7a-48e0-b0ba-1afe0ab20fb8",
+		"publisherDisplayName": "patrickkettner",
+		"targetPlatform": "undefined",
+		"updated": false,
+		"isPreReleaseVersion": false,
+		"hasPreReleaseVersion": false,
+		"installedTimestamp": 1707481187545,
+		"pinned": false
+	}
 }

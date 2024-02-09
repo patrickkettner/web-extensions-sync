@@ -3,32 +3,58 @@ import { tmpdir } from "os";
 import { mkdtempSync, mkdirSync, writeFileSync } from "fs";
 import * as path from "path";
 import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from "lz-string";
+
+type PlaygroundFile = {
+  name: string;
+  text: string;
+};
+
 const logger = vscode.window.createOutputChannel("Web Playground Fetcher");
 logger.appendLine("Web Playground Fetcher has started");
 
-const loadProject = function(hash: string) {
+const loadProject = async function(hash: string) {
   try {
     if (!hash) {
       return;
     }
-    
+
     const data = JSON.parse(
       decompressFromEncodedURIComponent(unescape(hash))
     );
 
-    const folderPath = createTemporaryDirectoryWithFiles(data);
-    vscode.commands.executeCommand(
-      "vscode.openFolder",
-      vscode.Uri.file(folderPath),
-      true
-    );
+
+    const openEditors = vscode.window.visibleTextEditors;
+    const forceReuseWindow = !!vscode.window.activeTextEditor;
+    const {workspaceFolders} = vscode.workspace;
+    const hasExistingWorkspace = workspaceFolders && workspaceFolders.length > 0;
+    const hasExistingEditors = openEditors && openEditors.length > 0;
+    const manifestFile = data.files.find((f:PlaygroundFile) => f.name === 'manifest.json')?.text
+    const workspaceName = manifestFile ? JSON.parse(manifestFile).name : 'Web Extension Playground imported workspace'
+    const folderPath = createTemporaryDirectoryWithFiles(data, workspaceName);
+
+    if (hasExistingEditors) {
+
+      const newWorkspaceFolder: vscode.WorkspaceFolder = {
+        uri: vscode.Uri.file(folderPath),
+        name: workspaceName,
+        index: -1
+      };
+
+      await vscode.workspace.updateWorkspaceFolders(workspaceFolders ? workspaceFolders.length : 0, null, newWorkspaceFolder);
+    } else {
+      await vscode.commands.executeCommand(
+        "vscode.openFolder",
+        vscode.Uri.file(folderPath),
+        !!hasExistingWorkspace
+      )
+    }
   } catch (err: any) {
     logger.appendLine(err.message);
   }
 };
 
-function createTemporaryDirectoryWithFiles({ files }: { files: any[] }) {
-  const tempDir = mkdtempSync(path.join(tmpdir(), "temp-"));
+function createTemporaryDirectoryWithFiles({ files }: { files: PlaygroundFile[] }, workspaceName: string) {
+  const tempDir = mkdtempSync(path.join(tmpdir(), `${workspaceName || "temp"}-`));
 
   files?.forEach((file: {
     name: string;text: any
@@ -66,12 +92,12 @@ export function activate(context: vscode.ExtensionContext) {
       const clipboard = await vscode.env.clipboard.readText();
       let userInput;
 
-      if (clipboard.startsWith(prefix)) { 
+      if (clipboard.startsWith(prefix)) {
         userInput = clipboard;
       } else {
       userInput = await vscode.window.showInputBox({
         placeHolder: `${prefix}...`,
-        validateInput: (text) => {
+        validateInput: (text:string) => {
           if (!text.startsWith(prefix)) {
             if (text !== "") {
               return "Invalid Playground URL";
@@ -127,10 +153,10 @@ export function activate(context: vscode.ExtensionContext) {
           );
           const gitIgnoreExists = vscode.workspace.fs
             .stat(gitIgnorePath)
-            .then((stat) => stat.type === vscode.FileType.File)
-            .then(undefined, () => false); // Error handling for failure case
+            .then((stat:any) => stat.type === vscode.FileType.File)
+            .then(undefined, () => false);
 
-          const gitIgnoreFileExists = await gitIgnoreExists; // Await the promise
+          const gitIgnoreFileExists = await gitIgnoreExists;
 
           if (gitIgnoreFileExists) {
             if (vscode.window.activeTextEditor) {
