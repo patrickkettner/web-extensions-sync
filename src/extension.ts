@@ -24,7 +24,6 @@ const loadProject = async function(hash: string) {
 
 
     const openEditors = vscode.window.visibleTextEditors;
-    const forceReuseWindow = !!vscode.window.activeTextEditor;
     const {workspaceFolders} = vscode.workspace;
     const hasExistingWorkspace = workspaceFolders && workspaceFolders.length > 0;
     const hasExistingEditors = openEditors && openEditors.length > 0;
@@ -32,7 +31,7 @@ const loadProject = async function(hash: string) {
     const workspaceName = manifestFile ? JSON.parse(manifestFile).name : 'Web Extension Playground imported workspace'
     const folderPath = createTemporaryDirectoryWithFiles(data, workspaceName);
 
-    if (hasExistingEditors) {
+    if (!hasExistingEditors && !hasExistingWorkspace) {
 
       const newWorkspaceFolder: vscode.WorkspaceFolder = {
         uri: vscode.Uri.file(folderPath),
